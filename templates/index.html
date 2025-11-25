@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Bank</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Account Balances</h1>
+        <div id="accounts-list" class="accounts-container"></div>
+        <hr>
+        <h2>Transfer Funds</h2>
+        <div id="message-area" class="message"></div>
+        <form id="transfer-form" class="transfer-form">
+            <div class="form-group">
+                <label for="sender">From:</label>
+                <select id="sender" name="sender" required></select>
+            </div>
+            <div class="form-group">
+                <label for="receiver">To:</label>
+                <select id="receiver" name="receiver" required></select>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" name="amount" min="0.01" step="0.01" required>
+            </div>
+            <button type="submit">Transfer</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const accountsList = document.getElementById('accounts-list');
+            const senderSelect = document.getElementById('sender');
+            const receiverSelect = document.getElementById('receiver');
+            const transferForm = document.getElementById('transfer-form');
+            const messageArea = document.getElementById('message-area');
+
+            async function fetchAndDisplayAccounts() {
+                try {
+                    const response = await fetch('/api/accounts');
+                    if (!response.ok) throw new Error('Failed to fetch accounts.');
+                    const accounts = await response.json();
+                    
+                    accountsList.innerHTML = '';
+                    senderSelect.innerHTML = '';
+                    receiverSelect.innerHTML = '';
+
+                    for (const name in accounts) {
+                        // Display accounts
+                        const accountDiv = document.createElement('div');
+                        accountDiv.className = 'account';
+                        accountDiv.innerHTML = `<strong>${name}:</strong> $${accounts[name].balance.toFixed(2)}`;
+                        accountsList.appendChild(accountDiv);
+
+                        // Populate dropdowns
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        senderSelect.appendChild(option.cloneNode(true));
+                        receiverSelect.appendChild(option.cloneNode(true));
+                    }
+                } catch (error) {
+                    messageArea.textContent = error.message;
+                    messageArea.className = 'message error';
+                }
+            }
+
+            transferForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                messageArea.textContent = ''; 
+
+                const formData = new FormData(transferForm);
+                const transferData = {
+                    sender: formData.get('sender'),
+                    receiver: formData.get('receiver'),
+                    amount: parseFloat(formData.get('amount'))
+                };
+
+                try {
+                    const response = await fetch('/api/transfer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(transferData)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.detail || 'An unknown error occurred.');
+                    }
+                    
+                    messageArea.textContent = result.message;
+                    messageArea.className = 'message success';
+                    transferForm.reset();
+                    fetchAndDisplayAccounts();
+
+                } catch (error) {
+                    messageArea.textContent = `Error: ${error.message}`;
+                    messageArea.className = 'message error';
+                }
+            });
+
+            // Initial load
+            fetchAndDisplayAccounts();
+        });
+    </script>
+</body>
+</html>
